@@ -1,0 +1,344 @@
+#####################################################################################
+####                                                                                 #####
+#### This is a practical project that does not depend on any real or actual data set #####
+####                                                                                 #####
+#####################################################################################
+
+
+## Import Required Libraries
+
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+
+## Read and View the data 
+
+sales_data <- read_csv("C:/Users/49159/Desktop/Profile Motawi/First Project R/Project R Data Sales/sales_data.csv")
+
+View(sales_data)
+
+# View First 6 rows 
+
+head(sales_data)
+
+# View Last 6 Rows  
+
+tail(sales_data)
+
+################################################################################
+
+### Data Preprocessing and Cleaning
+
+### Check the Variables Type and if there any missing Values NA.
+
+# General Summary of Data set
+
+summary(sales_data)
+
+str(sales_data)                  ## Data Has No Missing Values
+
+
+### Date Format and extract the Month as Number
+
+summary(sales_data$Sale_Date)
+
+DateSales <- as.Date(sales_data$Sale_Date,format="%Y-%m-%d")
+
+DateSalesMonth<- format(DateSales,"%Y-%m")
+
+## arrange Date Ascending 
+
+date<- sales_data %>% arrange(DateSales)
+
+View(date)
+
+length(sales_data$Sale_Date)
+
+## Describe th Sales Amount 
+
+summary(sales_data$Sales_Amount)
+sd(sales_data$Sales_Amount)
+var(sales_data$Sales_Amount)
+
+
+## Calculate the Profit 
+
+sales_data$Profit<- sales_data$Unit_Price - sales_data$Unit_Cost
+
+
+
+Profit<- sales_data %>% mutate(Profit = as.numeric(sales_data$Unit_Price - sales_data$Unit_Cost))
+
+View(Profit)
+
+ggplot(sales_data, aes(x = Profit)) +
+  geom_histogram(aes(y=..density..), fill = "lightblue", color = "black", bins = 30) +
+  geom_density(color = "red", size = 1)+
+  labs(title = "Profit Distribution with Density ", x = "Profit Amount $", y = " Denisty") +
+  theme_bw()
+
+
+
+## Calculate Unit Price After Discount 
+
+sales_data$discountPrice <- sales_data$Unit_Price * (1- sales_data$Discount)
+
+head(sales_data$discountPrice)
+
+## Check any missing Values 
+
+str(sales_data$Profit)
+
+str(sales_data$discountPrice)
+
+
+###############################################################################
+
+#### Plot and Explanatory of Different Variables  
+
+##Product Category 
+
+unique(sales_data$Product_Category)
+
+ggplot(sales_data, aes(x=sales_data$Product_Category))+
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) +
+  geom_bar(fill="Lightgreen")+labs(title = "Product Category",y="Product Name",x=" Category Name ")+
+  theme_bw()
+
+
+### Discovering the Region 
+
+unique(sales_data$Region)
+
+ggplot(sales_data,aes(x=sales_data$Region))+
+  geom_text(stat = "count", aes(label = ..count..), vjust = -0.5) +
+  geom_bar(fill="skyblue")+
+  labs(title = "Region", y="Count", x="Region")+
+  theme_bw()
+
+## Discovering the Sales Channel
+
+unique(sales_data$Sales_Channel)
+
+ggplot(sales_data, aes(x=sales_data$Sales_Channel))+
+  geom_bar(fill="purple")+
+  geom_text(stat = "count", aes(label=..count..), vjust = -0.5) +
+  labs(title = "Sales Channel Distribution",
+       y="Count", x = "Channel")+
+  theme_bw()
+
+################################################################################
+
+############## Aggregate Sales Over time  Daily , monthly  and Yearly 
+
+#### Daily 
+
+dailysales <- sales_data %>%
+  mutate(Date = as.Date(sales_data$Sale_Date)) %>%   # make sure Date is in Date format
+  group_by(Date) %>%
+  summarise(TotalSales = sum(Sales_Amount, na.rm = TRUE))
+
+#### Monthly 
+
+Monthly_sale<- aggregate(sales_data$Sales_Amount~DateSalesMonth, data = sales_data, sum)
+
+print(Monthly_sale)
+
+monthly_sales <- sales_data %>%
+  mutate(Month = floor_date(as.Date(sales_data$Sale_Date), "month")) %>%
+  group_by(Month) %>%
+  summarise(TotalSales = sum(Sales_Amount, na.rm = TRUE)) %>%
+  arrange(Month)
+
+print(monthly_sales)
+
+### Yearly 
+
+yearly_sales <- sales_data %>%
+  mutate(Year = year(as.Date(sales_data$Sale_Date))) %>%
+  group_by(Year) %>%
+  summarise(TotalSales = sum(Sales_Amount, na.rm = TRUE)) %>%
+  arrange(Year)
+
+print(yearly_sales)
+
+######
+
+options(scipen=999) # turn off the scientific number
+
+## Plot Monthly Sales 
+ggplot(monthly_sales, aes(x= Month, y= TotalSales))+
+     geom_line(col="lightblue", size =1)+
+     geom_point(col="red")+
+    labs(title = "Sales Over Time ", x= "Month", y="TotalSales")+
+  theme_bw()
+
+
+## Plot Daily Sales 
+
+ggplot(dailysales, aes(x = Date, y = TotalSales)) +
+  geom_line(color="lightblue", size=1) +
+  geom_point(color="red", size=0.5) +
+  labs(title="Daily Sales Trend",
+       x="Date", y="Total Sales") +
+  theme_classic()
+
+################################################################################
+
+####Detect Outliers using IQR
+
+Q1<- quantile(sales_data$Sales_Amount, 0.25, na.rm=TRUE) # 25th percentile
+Q3<- quantile(sales_data$Sales_Amount,0.75, na.rm=TRUE) # 75th percentile
+IQR_Value<- IQR(sales_data$Sales_Amount)# Q3-Q1
+
+lower_bound <- Q1 - 1.5 * IQR_Value
+Upper_bound <- Q3 + 1.5 * IQR_Value
+
+##Identify Outliers
+outliers <- sales_data %>% filter(Sales_Amount < lower_bound | Sales_Amount > Upper_bound)
+
+print(outliers)
+
+ggplot(sales_data, aes(y = Sales_Amount)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Outlier Detection using IQR", y = "Sales Amount") +
+  theme_classic()
+
+##############################################################################
+
+## Distribution of the Quantity sold 
+
+# Maximum of histogram density
+h <- hist(sales_data$Quantity_Sold, probability=TRUE, breaks=30,  
+          col="lightblue", main="Quantity sold Distribution", xlab="Quantity")
+
+# Maximum of normal curve density
+curve_max <- max(dnorm(sales_data$Quantity_Sold, mean=mean(sales_data$Quantity_Sold), sd=sd(sales_data$Quantity_Sold)))
+
+# Find the larger one
+y_max <- max(h$density, curve_max)
+
+### Re-plot with correct y-axis
+
+hist(sales_data$Quantity_Sold, probability=TRUE, breaks=30,
+     col="lightblue", main="Quantity sold Distribution", xlab="Quantity",
+     ylim=c(0, y_max * 1.1))   # add a little space on top
+
+curve(dnorm(x, mean=mean(sales_data$Quantity_Sold), sd=sd(sales_data$Quantity_Sold)),
+      from=min(sales_data$Quantity_Sold), to=max(sales_data$Quantity_Sold),
+      add=TRUE, col="red", lwd=2)
+
+
+## Distribution of  Cost unit  
+
+summary(sales_data$Unit_Cost)
+sd(sales_data$Unit_Cost)
+var(sales_data$Unit_Cost)
+
+hist(sales_data$Unit_Cost, probability=TRUE,breaks = 30, 
+     col="lightblue", main="Sales Cost unit  Distribution", xlab="Unit Cost")
+curve(dnorm(x, mean=mean(sales_data$Unit_Cost), sd=sd(sales_data$Unit_Cost)),
+      from = min(sales_data$Unit_Cost), to = max(sales_data$Unit_Cost),
+      add=TRUE, col="red", lwd=2)
+
+
+## Distribution of the sales unit Price 
+
+summary(sales_data$Unit_Price)
+sd(sales_data$Unit_Price)
+var(sales_data$Unit_Price)
+
+hist(sales_data$Unit_Price, probability=TRUE,breaks = 30, 
+     col="lightblue", main="Sales unit Price Distribution", xlab="Unit Price")
+curve(dnorm(x, mean=mean(sales_data$Unit_Price), sd=sd(sales_data$Unit_Price)),
+      from = min(sales_data$Unit_Price), to = max(sales_data$Unit_Price),
+      add=TRUE, col="red", lwd=2)
+
+#############################################################################
+
+## Summary the Customer Type 
+
+Customer_Type_summary <- sales_data %>% 
+  group_by(Customer_Type) %>%
+  summarise(TotalSales = sum(Sales_Amount,na.rm = TRUE),
+            AvgSales  = mean(Sales_Amount, na.rm =TRUE),
+            AvgAppliedDiscount = mean(Discount, na.rm = TRUE))
+
+print(Customer_Type_summary)
+
+Customer_Type_long <- Customer_Type_summary %>% 
+  pivot_longer(cols = c(TotalSales,AvgSales,AvgAppliedDiscount), 
+               names_to ="Metric", values_to = "Value")
+
+ggplot(Customer_Type_long, aes(x = Customer_Type, y = Value, fill = Customer_Type)) +
+  geom_col() +
+  facet_wrap(~ Metric, scales = "free_y") +
+  labs(title = "Customer Type Summary", x = "Customer Type", y = "Value") +
+  theme_bw()
+
+################################################################################
+
+## Analyzing Payment Method Preferences
+
+payment_summary <- sales_data %>% 
+  filter(!is.na(Customer_Type), !is.na(Payment_Method)) %>%
+  group_by(Payment_Method,Customer_Type) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(Share = count / sum(count) * 100) %>% ## Percentage per customer 
+ungroup()
+
+print(payment_summary)
+########################
+
+names(payment_summary)
+unique(payment_summary$Customer_Type)
+unique(payment_summary$Payment_Method)
+
+
+ggplot(payment_summary, aes(x = Payment_Method, y = count, fill = Customer_Type)) +
+  geom_col(position = position_dodge(width = 0.7)) +
+  geom_text(aes(label = count), position = position_dodge(width = 0.7), vjust = -0.3,size = 3.5) +
+  labs(title = "Payment Method", y = "Number of Transactions") +
+  theme_bw()
+
+############################################################################################
+## Visualization of total quantity sold per Customer Type 
+
+summary_Q.Sold <- sales_data %>% 
+  group_by(Customer_Type) %>%
+  summarise(TotalQuanitiy = sum(Quantity_Sold, na.rm = TRUE))
+print(summary_Q.Sold)
+
+ggplot(summary_Q.Sold, aes(x= Customer_Type, y = TotalQuanitiy, fill = Customer_Type))+
+  geom_col()+
+  geom_text(aes(label = TotalQuanitiy), vjust = -0.3 , size = 4)+
+  labs(title = "Total Quanitiy Sold Per Customer Type", x = "Customer Type", y = "Total Qunaitity sold ")+
+  theme_minimal()
+
+###########################################################################################
+
+# Top Most Profitable Items.
+
+Top_Profit_Product <- sales_data %>% 
+  group_by(Product_Category) %>%
+  summarise( TopProfit = sum(Profit, na.rm = TRUE)) %>%
+  arrange(desc(TopProfit))
+print(Top_Profit_Product)
+
+top_categories <- Top_Profit_Product %>%
+  slice_max(order_by = TopProfit, n = 4)
+
+print(top_categories)
+
+
+ggplot( Top_Profit_Product, aes(x = Product_Category,
+         y = TopProfit, fill = Product_Category)) +
+  geom_col() +
+  geom_text(aes(label = TopProfit), vjust = -0.3, size = 4) +
+  labs(title = "Top Most Profitable Product Categories",
+       x = "Product Category", y = "Total Profit") +
+  theme_minimal()
+################################################################################
+  
